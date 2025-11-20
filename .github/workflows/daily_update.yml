@@ -1,0 +1,50 @@
+name: Daily Puzzle Update
+
+on:
+  schedule:
+    # Run at 00:00 UTC every day
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  update-puzzle:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        pip install requests pandas
+
+    - name: Run Harvester (Fetch Data)
+      env:
+        IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+        IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+      run: |
+        python backend/harvester.py
+
+    - name: Run Solver (Generate Puzzle)
+      run: |
+        python backend/solver.py
+
+    - name: Copy files to frontend
+      run: |
+        cp daily_puzzle.json frontend/public/daily_puzzle.json
+        cp search_index.json frontend/public/search_index.json
+
+    - name: Commit and Push changes
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git add frontend/public/daily_puzzle.json frontend/public/search_index.json games.db
+        git commit -m "Daily puzzle update [skip ci]" || echo "No changes to commit"
+        git push
