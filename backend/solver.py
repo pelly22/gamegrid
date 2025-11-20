@@ -1,6 +1,7 @@
 import sqlite3
 import json
 import random
+import datetime
 
 DB_PATH = "games.db"
 OUTPUT_FILE = "daily_puzzle.json"
@@ -106,7 +107,7 @@ def generate_puzzle():
     selected_cols = cats["cols"][:3]
     
     grid_data = {
-        "id": "2025-11-20", # Tomorrow's date
+        "id": datetime.date.today().isoformat(),
         "rows": selected_rows,
         "cols": selected_cols,
         "valid_answers": {}
