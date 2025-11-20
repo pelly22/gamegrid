@@ -110,7 +110,7 @@ const Grid = () => {
         setActiveCell({ r, c });
     };
 
-    const handleGameSelect = (game) => {
+    const handleGameSelect = async (game) => {
         const cellKey = `${activeCell.r},${activeCell.c}`;
         const validIds = puzzle.valid_answers[cellKey] || [];
         const isCorrect = validIds.includes(game.id);
@@ -119,19 +119,54 @@ const Grid = () => {
         setGuessesLeft(prev => prev - 1);
 
         if (isCorrect) {
-            const newGuess = {
+            // Optimistic update
+            const tempGuess = {
                 game: { name: game.n, year: game.y, cover: game.c },
                 correct: true,
-                rarity: Math.floor(Math.random() * 100) // Mock rarity
+                rarity: null, // Loading state
+                isUnicorn: false
             };
-            setGuesses(prev => ({ ...prev, [cellKey]: newGuess }));
+            setGuesses(prev => ({ ...prev, [cellKey]: tempGuess }));
+            setActiveCell(null);
+
+            try {
+                const res = await fetch('/api/submit_guess', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        puzzleId: puzzle.id,
+                        cellId: cellKey,
+                        gameId: game.id
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    setGuesses(prev => ({
+                        ...prev,
+                        [cellKey]: { ...tempGuess, rarity: data.rarity, isUnicorn: data.isUnicorn }
+                    }));
+                } else {
+                    console.error("Failed to submit guess");
+                    // Fallback to mock if API fails
+                    setGuesses(prev => ({
+                        ...prev,
+                        [cellKey]: { ...tempGuess, rarity: Math.floor(Math.random() * 100), isUnicorn: false }
+                    }));
+                }
+            } catch (err) {
+                console.error("API error:", err);
+                setGuesses(prev => ({
+                    ...prev,
+                    [cellKey]: { ...tempGuess, rarity: Math.floor(Math.random() * 100), isUnicorn: false }
+                }));
+            }
+
         } else {
             // Incorrect guess: Cell stays open, but we lose a guess.
-            // Optionally alert the user or show a temporary "Miss" animation
             alert("Incorrect! That game doesn't match.");
+            setActiveCell(null);
         }
-
-        setActiveCell(null);
     };
 
     const handleGiveUp = () => {
@@ -249,14 +284,24 @@ const Grid = () => {
                                                         {guess.game.name}
                                                     </div>
                                                 </div>
-                                                <div className="absolute top-1 right-1 bg-green-500/90 text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold shadow-sm backdrop-blur-sm">
-                                                    {guess.rarity}%
+                                                <div className="absolute top-1 right-1 flex items-center gap-1">
+                                                    {guess.isUnicorn && <span className="text-lg drop-shadow-md" title="Unicorn! Unique guess!">🦄</span>}
+                                                    {!guess.isUnicorn && guess.rarity !== null && guess.rarity < 2 && <span className="text-lg drop-shadow-md" title="Diamond! < 2%">💎</span>}
+                                                    <div className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold shadow-sm backdrop-blur-sm ${guess.rarity !== null && guess.rarity < 5 ? "bg-yellow-500/90 text-black" : "bg-green-500/90 text-white"}`}>
+                                                        {guess.rarity !== null ? `${guess.rarity}%` : "..."}
+                                                    </div>
                                                 </div>
                                             </>
                                         ) : (
                                             <div className="p-2 text-center w-full">
                                                 <div className="text-white font-bold text-xs md:text-sm line-clamp-3 leading-tight">{guess.game.name}</div>
-                                                {guess.correct && <div className="text-green-400 text-xs mt-1 font-mono">{guess.rarity}%</div>}
+                                                {guess.correct && (
+                                                    <div className="flex items-center justify-center gap-1 mt-1">
+                                                        {guess.isUnicorn && <span>🦄</span>}
+                                                        {!guess.isUnicorn && guess.rarity !== null && guess.rarity < 2 && <span>💎</span>}
+                                                        <div className="text-green-400 text-xs font-mono">{guess.rarity !== null ? `${guess.rarity}%` : "..."}</div>
+                                                    </div>
+                                                )}
                                             </div>
                                         )
                                     ) : (
