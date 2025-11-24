@@ -5,6 +5,7 @@ const Grid = () => {
     const [puzzle, setPuzzle] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeCell, setActiveCell] = useState(null); // {r: 0, c: 0}
+    const [shakeCell, setShakeCell] = useState(null); // "r,c" string
 
     // State with initializers from localStorage
     const [guesses, setGuesses] = useState(() => {
@@ -164,7 +165,9 @@ const Grid = () => {
 
         } else {
             // Incorrect guess: Cell stays open, but we lose a guess.
-            alert("Incorrect! That game doesn't match.");
+            // Trigger shake animation
+            setShakeCell(cellKey);
+            setTimeout(() => setShakeCell(null), 500); // Remove class after animation
             setActiveCell(null);
         }
     };
@@ -260,17 +263,19 @@ const Grid = () => {
                             const cellKey = `${rIdx},${cIdx}`;
                             const guess = guesses[cellKey];
                             const isActive = activeCell && activeCell.r === rIdx && activeCell.c === cIdx;
+                            const isShaking = shakeCell === cellKey;
 
                             return (
                                 <div
                                     key={`cell-${rIdx}-${cIdx}`}
                                     className={`
                                         w-24 h-24 md:w-32 md:h-32 rounded-xl border-2 transition-all duration-300 flex flex-col items-center justify-center overflow-hidden relative shadow-inner group
+                                        ${isShaking ? "animate-shake border-red-500 bg-red-900/50" : ""}
                                         ${guess
                                             ? (guess.correct ? "bg-slate-900 border-green-500/50 shadow-[0_0_15px_rgba(34,197,94,0.2)]" : "bg-red-900/50 border-red-500/50")
                                             : isActive
                                                 ? "bg-slate-800 border-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.3)] scale-105 z-10"
-                                                : "bg-slate-800/40 border-slate-700/50 hover:bg-slate-700/60 hover:border-slate-500 cursor-pointer hover:scale-[1.02]"
+                                                : !isShaking && "bg-slate-800/40 border-slate-700/50 hover:bg-slate-700/60 hover:border-slate-500 cursor-pointer hover:scale-[1.02]"
                                         }
                                     `}
                                     onClick={() => handleCellClick(rIdx, cIdx)}
